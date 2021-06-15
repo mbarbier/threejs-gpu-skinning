@@ -1,0 +1,33 @@
+{
+  "name": "threejs-gpu-skinning",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "concurrently -k -n server,rollup \"http-server -c-1\" \"rollup -c -w\"",
+    "build": "rollup -c -p rollup-plugin-terser"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.129.0"
+  },
+  "devDependencies": {
+    "@babel/core": "7.12.13",
+    "@babel/plugin-proposal-class-properties": "^7.13.0",
+    "@babel/preset-env": "7.12.13",
+    "@babel/preset-typescript": "7.12.13",
+    "@rollup/plugin-babel": "5.2.3",
+    "@rollup/plugin-commonjs": "^19.0.0",
+    "@rollup/plugin-node-resolve": "11.1.1",
+    "@types/dat.gui": "^0.7.6",
+    "@types/stats": "^0.16.30",
+    "@types/three": "^0.129.0",
+    "concurrently": "^6.1.0",
+    "dat.gui": "^0.7.7",
+    "http-server": "^0.12.3",
+    "rollup": "2.38.5",
+    "rollup-plugin-terser": "^7.0.2",
+    "stats.js": "^0.17.0",
+    "typescript": "^4.2.4"
+  }
+}
