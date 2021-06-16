@@ -1,37 +1,52 @@
-import { Bone, DataTexture, FloatType, MathUtils, Matrix4, Quaternion, RGBAFormat, Skeleton, Vector3 } from "three";
+import { AnimationClip, AnimationMixer, Bone, DataTexture, FloatType, MathUtils, Matrix4, RGBAFormat, Skeleton } from "three";
+import { GPUSkinnedMeshMaterialPatcher } from "./GPUSkinnedMeshMaterialPatcher";
+import { Time } from "./Time";
 
 
 const _offsetMatrix = new Matrix4();
 
 export class GPUSkeleton extends Skeleton {
 
-    public duration = 3;
-    public fps = 30;
-    public steps = this.duration * this.fps;
+    public fps = 60;
+    public interpolateFrame = false;
+
+    public duration = 0;
+    public steps = 0;
+
+    private ellapsed = 0;
+
+    private rootBone: Bone;
+    private material: GPUSkinnedMeshMaterialPatcher;
 
     constructor(bones: Bone[], boneInverses?: Matrix4[]) {
         super(bones, boneInverses);
+
+        this.rootBone = this.bones[0];
+        while (this.rootBone.parent != null && this.rootBone.parent instanceof Bone) {
+            this.rootBone = this.rootBone.parent;
+        }
     }
 
-    buildAnimationTexture() {
-        let rootBone = this.bones[0];
-        while (rootBone.parent != null && rootBone.parent instanceof Bone) {
-            rootBone = rootBone.parent;
-        }
+    setMaterial(m: GPUSkinnedMeshMaterialPatcher) {
+        this.material = m;
+        this.material.patchShader(this);
+    }
+
+    registerAnimation(clip: AnimationClip) {
+        let mixer = new AnimationMixer(this.rootBone);
+
+        let animAction = mixer.clipAction(clip);
+        animAction.play();
+
+        this.duration = clip.duration;
+        this.steps = Math.floor(this.duration * this.fps);
 
         this.boneMatrices = new Float32Array(this.bones.length * 16 * this.steps);
 
         for (let s = 0; s < this.steps; s++) {
-            let time = s * (1 / this.fps);
+            mixer.update(1 / this.fps);
 
-            let a = Math.cos(time) * 0.1;
-            let rotation = new Quaternion();
-            rotation.setFromAxisAngle(new Vector3(0, 0, 1), a);
-            this.bones.forEach(b => {
-                b.quaternion.copy(rotation);
-            });
-            rootBone.updateMatrixWorld(true);
-
+            this.rootBone.updateMatrixWorld(true);
 
             for (let b = 0; b < this.bones.length; b++) {
                 const matrix = this.bones[b].matrixWorld;
@@ -58,13 +73,27 @@ export class GPUSkeleton extends Skeleton {
     }
 
     update() {
-        // do  nothing
-        // for (let i = 0, il = this.bones.length; i < il; i++) {
-        //     const matrix = this.bones[i].matrixWorld;
-        //     _offsetMatrix.multiplyMatrices(matrix, this.boneInverses[i]);
-        //     _offsetMatrix.toArray(this.boneMatrices, i * 16);
-        // }
-        // this.boneTexture.needsUpdate = true;
+
+        // no need for super.update()
+        let dt = Time.deltaTime;
+
+        this.ellapsed += dt;
+        this.ellapsed = MathUtils.clamp(this.ellapsed - Math.floor(this.ellapsed / this.duration) * this.duration, 0, this.duration);
+
+        let frame = Math.floor(this.ellapsed * this.fps);
+        frame = frame % this.steps;
+
+        let nextFrame = (frame + 1) % this.steps;
+
+        let frameTime = frame * (1 / this.fps);
+        let nextFrameTime = nextFrame * (1 / this.fps);
+        let frameLerp = MathUtils.inverseLerp(frameTime, nextFrameTime, this.ellapsed);
+        frameLerp = MathUtils.clamp(frameLerp, 0, 1);
+
+        this.material.currentStep = frame;
+        this.material.nextStep = nextFrame;
+        this.material.stepLerp = frameLerp;
     }
 
+    
 }

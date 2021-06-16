@@ -1,15 +1,8 @@
-import { AnimationMixer, AxesHelper, Color, DirectionalLight, Fog, Group, HemisphereLight, Material, MathUtils, Mesh, MeshLambertMaterial, MeshPhongMaterial, PerspectiveCamera, PlaneGeometry, Scene, Skeleton, SkinnedMesh, TextureLoader, WebGLRenderer } from "three";
+import {  Color, DirectionalLight, HemisphereLight, Mesh, MeshPhongMaterial, PerspectiveCamera, PlaneGeometry, Scene, WebGLRenderer } from "three";
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { ProceduralSkinnedMesh } from "./ProceduralSkinnedMesh";
+import { CrowdManager } from "./CrowdManager";
 
-
-export type BodyPartInfo = {
-    meshes: Array<SkinnedMesh>,
-    guiElement: HTMLElement,
-    current: number,
-}
 
 export class SharedSkeletonScene {
 
@@ -17,17 +10,10 @@ export class SharedSkeletonScene {
     private scene: Scene;
     private renderer: WebGLRenderer;
 
-    private mixer: AnimationMixer;
-
-    private sharedSkeleton: Skeleton;
-    private characterMaterial: Material;
-
-    private character: Group;
-    private bodyParts: Array<BodyPartInfo> = [];
+    private crowdManager: CrowdManager;
 
     constructor() {
 
-        const self = this;
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -39,7 +25,7 @@ export class SharedSkeletonScene {
 
         this.scene = new Scene();
         this.scene.background = new Color(0xa0a0a0);
-        this.scene.fog = new Fog(0xa0a0a0, 500, 1000);
+        // this.scene.fog = new Fog(0xa0a0a0, 500, 1000);
 
         // renderer
         this.renderer = new WebGLRenderer({ antialias: true });
@@ -75,55 +61,19 @@ export class SharedSkeletonScene {
         mesh.receiveShadow = true;
         this.scene.add(mesh);
 
-        // const loader = new FBXLoader();
-        // loader.load('assets/StandingClap.fbx', function (object: Group) {
-        //     self.onAssetLoaded(object);
-        // });
-        this.procSkinnedMesh = new ProceduralSkinnedMesh();
-        // this.procSkinnedMesh.mesh.position.set(150, 55, -29);
-        //this.procSkinnedMesh.mesh.rotateY(40 * MathUtils.DEG2RAD);
-        this.scene.add(this.procSkinnedMesh.mesh);
-
-        let axe = new AxesHelper(100);
-        this.scene.add(axe);
+        
+        this.crowdManager = new CrowdManager(this.scene);
     }
-
+    
     private onWindowResize() {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
-
-    private procSkinnedMesh: ProceduralSkinnedMesh;
-
-    update(dt: number) {
-
-        if (this.mixer != null) {
-            this.mixer.update(dt);
-        }
-        if (this.procSkinnedMesh != null) {
-            this.procSkinnedMesh.update(dt);
-        }
-
+    
+    update() {
+        this.crowdManager.update();
         this.renderer.render(this.scene, this.camera);
     }
-
-
-    // private onAssetLoaded(fbx: Group) {
-
-    //     fbx.traverse(o => {
-    //         if (o instanceof SkinnedMesh) {
-    //             console.log("skinned mesh: " + o);
-    //         }
-    //     })
-
-    //     this.scene.add(fbx);
-    //     this.mixer = new AnimationMixer(fbx);
-
-    //     const action = this.mixer.clipAction(fbx.animations[0]);
-    //     action.play();
-    // }
-
-
 
 }

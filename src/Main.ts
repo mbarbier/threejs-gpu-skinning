@@ -1,5 +1,5 @@
-import { Clock } from "three";
 import { SharedSkeletonScene } from "./Scene";
+import { Time } from "./Time";
 
 
 // let prev = WebGL2RenderingContext.prototype.shaderSource;
@@ -12,7 +12,6 @@ import { SharedSkeletonScene } from "./Scene";
 
 
 const scene = new SharedSkeletonScene();
-const clock = new Clock();
 
 // FPS
 // const stats = new Stats();
@@ -23,8 +22,9 @@ function animate() {
 
     requestAnimationFrame(animate);
 
-    const delta = clock.getDelta();
-    scene.update(delta);
+    Time.getDelta();
+    
+    scene.update();
 
     // stats.update();
 }

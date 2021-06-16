@@ -1,18 +1,19 @@
-import { Material, MathUtils, Shader, WebGLRenderer } from "three";
+import { Material, Shader, WebGLRenderer } from "three";
 import { GPUSkeleton } from "./GPUSkeleton";
 
 export class GPUSkinnedMeshMaterialPatcher {
 
-    private ellapsed = 0;
-
     private shader: Shader;
 
-    constructor(baseMaterial: Material, private skeleton: GPUSkeleton) {
-        baseMaterial.onBeforeCompile = (s, r) => this.onBeforeCompile(s, r);
+    constructor(private baseMaterial: Material) {
     }
 
+    patchShader(skeleton: GPUSkeleton) {
+        this.baseMaterial.onBeforeCompile = (s, r) => this.onBeforeCompile(s, r, skeleton);
+    }
 
-    private onBeforeCompile(shader: Shader, renderer: WebGLRenderer) {
+    private onBeforeCompile(shader: Shader, renderer: WebGLRenderer, skeleton: GPUSkeleton) {
+
         this.shader = shader;
 
         shader.uniforms["currentStep"] = { value: 0 };
@@ -21,6 +22,102 @@ export class GPUSkinnedMeshMaterialPatcher {
 
         let skinning_pars_vertex = `
 
+        // Add function to interpolate beetween 2 frames
+        ${this.getInterpolationShaderCode()}
+
+        uniform int currentStep;
+        uniform int nextStep;
+        uniform float stepLerp;
+
+        int animSteps = ${skeleton.steps};
+        int bonesCount = ${skeleton.bones.length};
+        bool interpolateFrame = ${skeleton.interpolateFrame};
+
+        #ifdef USE_SKINNING
+        
+            uniform mat4 bindMatrix;
+            uniform mat4 bindMatrixInverse;
+        
+            #ifdef BONE_TEXTURE
+        
+                uniform highp sampler2D boneTexture;
+                uniform int boneTextureSize;
+        
+                // Get skinning for bone 'i' at frame 'step'
+                mat4 getStepBoneMatrix( const in float i, const in int step ) {
+                    // 4 pixels for 1 matrix
+                    float j = float(step) * float(bonesCount) * 4.0 + i * 4.0;
+                    float x = mod( j, float( boneTextureSize ) );
+                    float y = floor( j / float( boneTextureSize ) );
+        
+                    float dx = 1.0 / float( boneTextureSize );
+                    float dy = 1.0 / float( boneTextureSize );
+        
+                    y = dy * ( y + 0.5 );
+        
+                    vec4 v1 = texture2D( boneTexture, vec2( dx * ( x + 0.5 ), y ) );
+                    vec4 v2 = texture2D( boneTexture, vec2( dx * ( x + 1.5 ), y ) );
+                    vec4 v3 = texture2D( boneTexture, vec2( dx * ( x + 2.5 ), y ) );
+                    vec4 v4 = texture2D( boneTexture, vec2( dx * ( x + 3.5 ), y ) );
+        
+                    mat4 bone = mat4( v1, v2, v3, v4 );
+                    return bone;
+                }
+
+
+                mat4 getBoneMatrix( const in float i ) {
+                    mat4 bone0 = getStepBoneMatrix(i, currentStep);
+                    if(!interpolateFrame) {
+                        return bone0;
+                    }
+
+                    mat4 bone1 = getStepBoneMatrix(i, nextStep);
+
+                    vec3 position0; vec4 rotation0; vec3 scale0;
+                    vec3 position1; vec4 rotation1; vec3 scale1;
+                    
+                    decompose(bone0, position0, rotation0, scale0);
+                    decompose(bone1, position1, rotation1, scale1);
+                    
+                    vec3 position2 = mix(position0, position1, stepLerp);
+                    vec3 scale2 = mix(scale0, scale1, stepLerp);
+                    vec4 rotation2 = slerp(rotation0, rotation1, stepLerp);
+
+                    mat4 lerpMatrix = compose(position2, rotation2, scale2);
+                    return lerpMatrix;
+                }
+        
+            #else
+                uniform mat4 boneMatrices[ MAX_BONES ];
+                mat4 getBoneMatrix( const in float i ) {
+                    mat4 bone = boneMatrices[ int(i) ];
+                    return bone;
+                }
+            #endif
+        
+        #endif
+        `;
+
+
+        shader.vertexShader = shader.vertexShader.replace('#include <skinning_pars_vertex>', skinning_pars_vertex);
+    }
+
+    set currentStep(frame: number) {
+        if (this.shader == null) return;
+        this.shader.uniforms["currentStep"].value = frame;
+    }
+    set nextStep(frame: number) {
+        if (this.shader == null) return;
+        this.shader.uniforms["nextStep"].value = frame;
+    }
+    set stepLerp(lerp: number) {
+        if (this.shader == null) return;
+        this.shader.uniforms["stepLerp"].value = lerp;
+    }
+
+    private getInterpolationShaderCode() {
+
+        let c = `
         vec4 slerp(vec4 a, vec4 b, float t) {
             // if either input is zero, return the other.
             if (length(a) == 0.0) {
@@ -33,7 +130,6 @@ export class GPUSkinnedMeshMaterialPatcher {
             }
         
             float cosHalfAngle = a.w * b.w + dot(a.xyz, b.xyz);
-        
             if (cosHalfAngle >= 1.0 || cosHalfAngle <= -1.0) {
                 return a;
             } else if (cosHalfAngle < 0.0) {
@@ -197,119 +293,7 @@ export class GPUSkinnedMeshMaterialPatcher {
             scale.y = sy;
             scale.z = sz;
         }
-
-        uniform float time;
-        uniform int currentStep;
-        uniform int nextStep;
-        uniform float stepLerp;
-        int animSteps = ${this.skeleton.steps};
-        int bonesCount = ${this.skeleton.bones.length};
-
-        #ifdef USE_SKINNING
-        
-            uniform mat4 bindMatrix;
-            uniform mat4 bindMatrixInverse;
-        
-            #ifdef BONE_TEXTURE
-        
-                uniform highp sampler2D boneTexture;
-                uniform int boneTextureSize;
-        
-                mat4 getStepBoneMatrix( const in float i, const in int step ) {
-                    // 4 pixels for 1 matrix
-                    float j = float(step) * float(bonesCount) * 4.0 + i * 4.0;
-                    float x = mod( j, float( boneTextureSize ) );
-                    float y = floor( j / float( boneTextureSize ) );
-        
-                    float dx = 1.0 / float( boneTextureSize );
-                    float dy = 1.0 / float( boneTextureSize );
-        
-                    y = dy * ( y + 0.5 );
-        
-                    vec4 v1 = texture2D( boneTexture, vec2( dx * ( x + 0.5 ), y ) );
-                    vec4 v2 = texture2D( boneTexture, vec2( dx * ( x + 1.5 ), y ) );
-                    vec4 v3 = texture2D( boneTexture, vec2( dx * ( x + 2.5 ), y ) );
-                    vec4 v4 = texture2D( boneTexture, vec2( dx * ( x + 3.5 ), y ) );
-        
-                    mat4 bone = mat4( v1, v2, v3, v4 );
-                    return bone;
-                }
-
-
-                mat4 getBoneMatrix( const in float i ) {
-                    mat4 bone0 = getStepBoneMatrix(i, currentStep);
-                    mat4 bone1 = getStepBoneMatrix(i, nextStep);
-
-                    vec3 position0; vec4 rotation0; vec3 scale0;
-                    vec3 position1; vec4 rotation1; vec3 scale1;
-                    
-                    decompose(bone0, position0, rotation0, scale0);
-                    decompose(bone1, position1, rotation1, scale1);
-                    
-                    vec3 position2 = mix(position0, position1, stepLerp);
-                    vec3 scale2 = mix(scale0, scale1, stepLerp);
-                    vec4 rotation2 = slerp(rotation0, rotation1, stepLerp);
-
-                    mat4 lerpMatrix = compose(position2, rotation2, scale2);
-                    return lerpMatrix;
-                    // return bone0;
-                }
-        
-            #else
-                uniform mat4 boneMatrices[ MAX_BONES ];
-                mat4 getBoneMatrix( const in float i ) {
-                    mat4 bone = boneMatrices[ int(i) ];
-                    return bone;
-                }
-            #endif
-        
-        #endif
         `;
-
-
-
-        let skinning_vertex = `
-        #ifdef USE_SKINNING
-            // vec4 skinVertex = bindMatrix * vec4( transformed, 1.0 );
-            // vec4 skinned = vec4( 0.0 );
-            // skinned += boneMatX * skinVertex * skinWeight.x;
-            // skinned += boneMatY * skinVertex * skinWeight.y;
-            // skinned += boneMatZ * skinVertex * skinWeight.z;
-            // skinned += boneMatW * skinVertex * skinWeight.w;
-            // transformed = ( bindMatrixInverse * skinned ).xyz;
-            vec4 skinVertex = bindMatrix * vec4( transformed, 1.0 );
-            vec4 skinned = vec4( 0.0 );
-            skinned += boneMatX * skinVertex * skinWeight.x;
-            skinned += boneMatY * skinVertex * skinWeight.y;
-            skinned += boneMatZ * skinVertex * skinWeight.z;
-            skinned += boneMatW * skinVertex * skinWeight.w;
-            transformed = ( bindMatrixInverse * skinned ).xyz;
-        #endif
-        `;
-
-        shader.vertexShader = shader.vertexShader.replace('#include <skinning_pars_vertex>', skinning_pars_vertex);
-        shader.vertexShader = shader.vertexShader.replace('#include <skinning_vertex>', skinning_vertex);
-    }
-
-
-    update(dt: number) {
-        if (this.shader == null) return;
-
-        this.ellapsed += dt;
-        this.ellapsed = MathUtils.clamp(this.ellapsed - Math.floor(this.ellapsed / this.skeleton.duration) * this.skeleton.duration, 0, this.skeleton.duration);
-
-        let frame = Math.floor(this.ellapsed * this.skeleton.fps);
-        frame = frame % this.skeleton.steps;
-
-        let nextFrame = (frame + 1) % this.skeleton.steps;
-
-        let frameTime = frame * (1 / this.skeleton.fps);
-        let nextFrameTime = nextFrame * (1 / this.skeleton.fps);
-        let lerp = MathUtils.inverseLerp(frameTime, nextFrameTime, this.ellapsed);
-
-
-        this.shader.uniforms["currentStep"].value = frame;
-        this.shader.uniforms["nextStep"].value = nextFrame;
-        this.shader.uniforms["stepLerp"].value = lerp;
+        return c;
     }
 }
