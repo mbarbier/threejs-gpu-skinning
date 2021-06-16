@@ -1,4 +1,4 @@
-import {  Color, DirectionalLight, HemisphereLight, Mesh, MeshPhongMaterial, PerspectiveCamera, PlaneGeometry, Scene, WebGLRenderer } from "three";
+import {  Color, DirectionalLight,  HemisphereLight, Mesh, MeshPhongMaterial, PerspectiveCamera, PlaneGeometry, Scene, WebGLRenderer } from "three";
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CrowdManager } from "./CrowdManager";
@@ -20,12 +20,12 @@ export class SharedSkeletonScene {
         // setup scene and camera
         this.camera = new PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
         this.camera.near = 0.1;
-        this.camera.far = 2000;
-        this.camera.position.set(100, 200, 300);
+        this.camera.far = 1000;
+        this.camera.position.set(0, 8, 25);
 
         this.scene = new Scene();
         this.scene.background = new Color(0xa0a0a0);
-        // this.scene.fog = new Fog(0xa0a0a0, 500, 1000);
+        // this.scene.fog = new Fog(0xa0a0a0, 25, 50);
 
         // renderer
         this.renderer = new WebGLRenderer({ antialias: true });
@@ -38,7 +38,7 @@ export class SharedSkeletonScene {
 
         // controls
         const controls = new OrbitControls(this.camera, this.renderer.domElement);
-        controls.target.set(0, 100, 0);
+        controls.target.set(0, 10, 0);
         controls.update();
 
         // lights
@@ -56,13 +56,15 @@ export class SharedSkeletonScene {
         this.scene.add(dirLight);
 
         // ground
-        const mesh = new Mesh(new PlaneGeometry(2000, 2000), new MeshPhongMaterial({ color: 0x999999, depthWrite: false }));
+        const mesh = new Mesh(new PlaneGeometry(2000, 2000), new MeshPhongMaterial({ color: 0x999999 }));
         mesh.rotation.x = - Math.PI / 2;
         mesh.receiveShadow = true;
         this.scene.add(mesh);
 
         
         this.crowdManager = new CrowdManager(this.scene);
+
+        (window as any)["_scene"] = this;
     }
     
     private onWindowResize() {

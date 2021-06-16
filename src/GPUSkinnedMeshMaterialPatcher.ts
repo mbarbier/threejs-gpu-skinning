@@ -25,9 +25,10 @@ export class GPUSkinnedMeshMaterialPatcher {
         // Add function to interpolate beetween 2 frames
         ${this.getInterpolationShaderCode()}
 
-        uniform int currentStep;
-        uniform int nextStep;
-        uniform float stepLerp;
+        attribute vec3 instanceFrameData; // currentStep, nextStep, stepLerp
+        // uniform int currentStep;
+        // uniform int nextStep;
+        // uniform float stepLerp;
 
         int animSteps = ${skeleton.steps};
         int bonesCount = ${skeleton.bones.length};
@@ -44,7 +45,7 @@ export class GPUSkinnedMeshMaterialPatcher {
                 uniform int boneTextureSize;
         
                 // Get skinning for bone 'i' at frame 'step'
-                mat4 getStepBoneMatrix( const in float i, const in int step ) {
+                mat4 getStepBoneMatrix( const in float i, const in float step ) {
                     // 4 pixels for 1 matrix
                     float j = float(step) * float(bonesCount) * 4.0 + i * 4.0;
                     float x = mod( j, float( boneTextureSize ) );
@@ -66,12 +67,12 @@ export class GPUSkinnedMeshMaterialPatcher {
 
 
                 mat4 getBoneMatrix( const in float i ) {
-                    mat4 bone0 = getStepBoneMatrix(i, currentStep);
+                    mat4 bone0 = getStepBoneMatrix(i, instanceFrameData.x);
                     if(!interpolateFrame) {
                         return bone0;
                     }
 
-                    mat4 bone1 = getStepBoneMatrix(i, nextStep);
+                    mat4 bone1 = getStepBoneMatrix(i, instanceFrameData.y);
 
                     vec3 position0; vec4 rotation0; vec3 scale0;
                     vec3 position1; vec4 rotation1; vec3 scale1;
@@ -79,9 +80,9 @@ export class GPUSkinnedMeshMaterialPatcher {
                     decompose(bone0, position0, rotation0, scale0);
                     decompose(bone1, position1, rotation1, scale1);
                     
-                    vec3 position2 = mix(position0, position1, stepLerp);
-                    vec3 scale2 = mix(scale0, scale1, stepLerp);
-                    vec4 rotation2 = slerp(rotation0, rotation1, stepLerp);
+                    vec3 position2 = mix(position0, position1, instanceFrameData.z);
+                    vec3 scale2 = mix(scale0, scale1, instanceFrameData.z);
+                    vec4 rotation2 = slerp(rotation0, rotation1, instanceFrameData.z);
 
                     mat4 lerpMatrix = compose(position2, rotation2, scale2);
                     return lerpMatrix;
