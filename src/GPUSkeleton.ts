@@ -16,32 +16,12 @@ export class GPUSkeleton extends Skeleton {
     private rootBone: Bone;
     private material: GPUSkinnedMeshMaterialPatcher;
 
-    private debugAnim = false;
-
     constructor(bones: Bone[], boneInverses?: Matrix4[]) {
         super(bones, boneInverses);
 
         this.rootBone = this.bones[0];
         while (this.rootBone.parent != null && this.rootBone.parent instanceof Bone) {
             this.rootBone = this.rootBone.parent;
-        }
-
-        if (this.debugAnim) {
-            let debugFrame = 0;
-            document.addEventListener("keydown", (ev) => {
-                if (ev.key == "ArrowLeft") {
-                    debugFrame--;
-                    let frame = MathUtils.euclideanModulo(debugFrame, this.steps);
-                    this.material.currentStep = frame;
-                    console.log("show frame: " + frame);
-                }
-                if (ev.key == "ArrowRight") {
-                    debugFrame++;
-                    let frame = MathUtils.euclideanModulo(debugFrame, this.steps);
-                    this.material.currentStep = frame;
-                    console.log("show frame: " + frame);
-                }
-            });
         }
     }
 

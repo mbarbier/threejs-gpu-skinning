@@ -8,14 +8,9 @@ import { InstancedSkinnedMesh } from "./InstancedSkinnedMesh";
 
 export class CrowdManager {
 
-
     private instancedSkinnedMesh: InstancedSkinnedMesh;
 
     constructor(private scene: Scene) {
-
-
-        // loading stickman https://sketchfab.com/3d-models/stickman-low-poly-12b31ea386ee4398a552d15c01615ae9
-
         const loader = new FBXLoader();
         // loader.load('assets/StandingClap.fbx', (object: Group) => {
         //     this.onAssetLoaded(object);
@@ -36,21 +31,23 @@ export class CrowdManager {
             }
         });
 
-        // let material = mesh.material as MeshStandardMaterial;
-        let material = new MeshLambertMaterial();
         let bones = mesh.skeleton.bones;
 
+        // Patch material to support GPU skinning
+        let material = new MeshLambertMaterial();
         let patch = new GPUSkinnedMeshMaterialPatcher(material);
+
+        // Encode animation
         let skeleton = new GPUSkeleton(bones);
         skeleton.registerAnimation(fbx.animations[0]);
         skeleton.setMaterial(patch);
 
-
+        // Spawn instance
         let width = 75;
         let height = 20;
 
         this.instancedSkinnedMesh = new InstancedSkinnedMesh(mesh.geometry, material, width * height);
-        this.instancedSkinnedMesh.bind(skeleton);
+        this.instancedSkinnedMesh.bind(skeleton, mesh.matrixWorld);
 
         let colors: Array<Color> = [];
         colors.push(new Color(0xffbe0b));
@@ -66,9 +63,9 @@ export class CrowdManager {
         let starty = 1.1;
         let startx = -width * spacex / 2;
 
-
+        let scale = new Vector3(1, 1, 1).multiplyScalar(0.005);
         let mat4 = new Matrix4();
-        mat4.scale(new Vector3(0.005, 0.005, 0.005));
+        mat4.scale(scale);
         for (let x = 0; x < width; x++) {
             for (let y = 0; y < height; y++) {
                 let index = y * width + x;

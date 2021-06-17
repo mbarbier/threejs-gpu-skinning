@@ -1,4 +1,4 @@
-import {  Color, DirectionalLight,  HemisphereLight, Mesh, MeshPhongMaterial, PerspectiveCamera, PlaneGeometry, Scene, WebGLRenderer } from "three";
+import { Color, DirectionalLight, HemisphereLight, Mesh, MeshPhongMaterial, PerspectiveCamera, PlaneGeometry, Scene, WebGLRenderer } from "three";
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CrowdManager } from "./CrowdManager";
@@ -25,13 +25,11 @@ export class SharedSkeletonScene {
 
         this.scene = new Scene();
         this.scene.background = new Color(0xa0a0a0);
-        // this.scene.fog = new Fog(0xa0a0a0, 25, 50);
 
         // renderer
-        this.renderer = new WebGLRenderer({ antialias: true });
+        this.renderer = new WebGLRenderer();
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
         container.appendChild(this.renderer.domElement);
 
         window.addEventListener('resize', this.onWindowResize.bind(this));
@@ -48,31 +46,24 @@ export class SharedSkeletonScene {
 
         const dirLight = new DirectionalLight(0xffffff);
         dirLight.position.set(0, 200, 100);
-        dirLight.castShadow = true;
-        dirLight.shadow.camera.top = 180;
-        dirLight.shadow.camera.bottom = - 100;
-        dirLight.shadow.camera.left = - 120;
-        dirLight.shadow.camera.right = 120;
         this.scene.add(dirLight);
 
         // ground
-        const mesh = new Mesh(new PlaneGeometry(2000, 2000), new MeshPhongMaterial({ color: 0x999999 }));
+        const mesh = new Mesh(new PlaneGeometry(200, 50), new MeshPhongMaterial({ color: 0x999999 }));
         mesh.rotation.x = - Math.PI / 2;
-        mesh.receiveShadow = true;
         this.scene.add(mesh);
 
-        
         this.crowdManager = new CrowdManager(this.scene);
 
         (window as any)["_scene"] = this;
     }
-    
+
     private onWindowResize() {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
-    
+
     update() {
         this.crowdManager.update();
         this.renderer.render(this.scene, this.camera);
