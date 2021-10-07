@@ -50,6 +50,7 @@ export class GPUSkeleton extends Skeleton {
 
             this.rootBone.updateMatrixWorld(true);
 
+            // Compute for each animation step the bones matrices
             for (let b = 0; b < this.bones.length; b++) {
                 const matrix = this.bones[b].matrixWorld;
                 _offsetMatrix.multiplyMatrices(matrix, this.boneInverses[b]);

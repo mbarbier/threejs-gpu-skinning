@@ -1,6 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
 import commonjs from '@rollup/plugin-commonjs'
+import copy from 'rollup-plugin-copy'
 import { terser } from "rollup-plugin-terser";
 
 const extensions = [
@@ -28,11 +29,17 @@ export default {
         }),
 
         //terser()
+
+        copy({
+            targets: [
+                { src: 'web/*', dest: 'dist/' },
+            ]
+        }),
     ],
 
     output: [
         {
-            file: "dist/three-gpu-skinning.js",
+            file: "dist/js/three-gpu-skinning.js",
             sourcemap: true,
             format: 'esm'
         }

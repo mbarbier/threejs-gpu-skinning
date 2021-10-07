@@ -3,16 +3,24 @@ import { Color, DirectionalLight, HemisphereLight, Mesh, MeshPhongMaterial, Pers
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CrowdManager } from "./CrowdManager";
 
+import { GUI } from 'dat.gui';
 
 export class SharedSkeletonScene {
 
     private camera: PerspectiveCamera;
     private scene: Scene;
-    private renderer: WebGLRenderer;
-
     private crowdManager: CrowdManager;
 
+    private rowCount = 20;
+    private columnCount = 75;
+
+    renderer: WebGLRenderer;
+
     constructor() {
+
+        const gui = new GUI();
+        gui.add(this, 'rows', 1, 50, 1);
+        gui.add(this, 'columns', 10, 200, 10);
 
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -54,6 +62,7 @@ export class SharedSkeletonScene {
         this.scene.add(mesh);
 
         this.crowdManager = new CrowdManager(this.scene);
+        this.crowdManager.rebuild(this.rowCount, this.columnCount);
 
         (window as any)["_scene"] = this;
     }
@@ -69,4 +78,18 @@ export class SharedSkeletonScene {
         this.renderer.render(this.scene, this.camera);
     }
 
+    get rows(): number {
+        return this.rowCount;
+    }
+    set rows(r: number) {
+        this.rowCount = r;
+        this.crowdManager.rebuild(this.rowCount, this.columnCount);
+    }
+    get columns(): number {
+        return this.columnCount;
+    }
+    set columns(r: number) {
+        this.columnCount = r;
+        this.crowdManager.rebuild(this.rowCount, this.columnCount);
+    }
 }
